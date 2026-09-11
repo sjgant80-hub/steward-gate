@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steward Gate — who may steer the kernel</title>
+<meta name="description" content="Governance weight gated by geometric self-persistence. A node earns voting units by verified work, but may only steer the kernel if it holds a self — verify AND remember. A provably-fit cripple earns yet carries zero weight over the kernel.">
+<style>
+  :root{
+    --bg:#0b0a12; --panel:#141320; --panel2:#1a1828; --line:#2a2740;
+    --ink:#ece9f5; --dim:#948fb0; --accent:#b79cff; --accent2:#d4c4ff;
+    --steer:#6fe3b0; --barred:#ff7a8f; --gold:#e6c05f; --chip:#191728;
+    --mono:ui-monospace,SFMono-Regular,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,Segoe UI,Roboto,sans-serif;padding:0 0 4rem}
+  .wrap{max-width:900px;margin:0 auto;padding:0 1.25rem}
+  header{padding:2.3rem 0 .8rem}
+  h1{font-size:1.7rem;letter-spacing:-.01em} h1 .hl{color:var(--accent)}
+  .sub{color:var(--dim);margin-top:.5rem;max-width:50rem}
+  h2{font-size:1.03rem;margin:1.6rem 0 .55rem}
+  .presets{display:flex;gap:.5rem;flex-wrap:wrap;margin:.4rem 0 1rem}
+  .presets button{background:var(--chip);color:var(--dim);border:1px solid var(--line);border-radius:8px;font-size:.82rem;font-weight:600;padding:.42rem .85rem;cursor:pointer}
+  .presets button:hover{filter:brightness(1.3);color:var(--ink)}
+  .nodes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem}
+  @media(max-width:760px){.nodes{grid-template-columns:1fr}}
+  .node{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:.75rem .8rem}
+  .node.steer{border-color:var(--steer)} .node.barred{border-color:var(--barred)}
+  .node .id{font:700 .92rem var(--mono);color:var(--ink);display:flex;justify-content:space-between;align-items:center}
+  .badge{font:.66rem var(--mono);padding:.12rem .45rem;border-radius:20px;text-transform:uppercase;letter-spacing:.04em}
+  .badge.steer{background:#12291f;color:var(--steer);border:1px solid var(--steer)}
+  .badge.barred{background:#291418;color:var(--barred);border:1px solid var(--barred)}
+  .field{margin-top:.5rem}
+  .field label{font:.72rem var(--mono);color:var(--dim);display:flex;justify-content:space-between}
+  .field label .val{color:var(--accent2)}
+  .field input[type=range]{width:100%;accent-color:var(--accent);margin-top:.15rem}
+  .field input[type=number]{width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:.25rem .4rem;font:.82rem var(--mono);margin-top:.15rem}
+  .vote{display:flex;gap:.3rem;margin-top:.55rem}
+  .vote button{flex:1;background:var(--chip);color:var(--dim);border:1px solid var(--line);border-radius:7px;font-size:.72rem;font-weight:700;padding:.3rem 0;cursor:pointer}
+  .vote button.on-for{background:#12291f;color:var(--steer);border-color:var(--steer)}
+  .vote button.on-against{background:#291418;color:var(--barred);border-color:var(--barred)}
+  .vote button.on-abstain{background:#20202c;color:var(--ink);border-color:var(--dim)}
+  .bylaws{display:flex;gap:1.2rem;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:.8rem 1rem;margin-top:.6rem}
+  .bylaws .b{flex:1;min-width:12rem} .bylaws label{font:.76rem var(--mono);color:var(--dim);display:flex;justify-content:space-between}
+  .bylaws label .val{color:var(--accent2)} .bylaws input{width:100%;accent-color:var(--accent);margin-top:.2rem}
+  .verdicts{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-top:.7rem}
+  @media(max-width:680px){.verdicts{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:1rem 1.1rem}
+  .card.raw{opacity:.9} .card h3{font:.78rem var(--mono);color:var(--dim);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+  .verdict{font:800 1.35rem var(--mono);margin-top:.35rem;display:flex;align-items:center;gap:.5rem}
+  .v-pass{color:var(--steer)} .v-fail{color:var(--barred)}
+  .tallyline{font:.8rem var(--mono);color:var(--dim);margin-top:.4rem}
+  .tallyline b{color:var(--ink)}
+  .flip{margin-top:.8rem;padding:.85rem 1rem;border-radius:10px;border:1px solid var(--line);background:var(--panel2);font-size:.9rem;color:var(--dim)}
+  .flip.on{border-color:var(--gold);background:#241f12} .flip.on b{color:var(--gold)}
+  .note{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:.85rem 1rem;color:var(--dim);font-size:.9rem;margin-top:1.1rem}
+  code{font:.88em var(--mono);background:var(--chip);padding:.08em .35em;border-radius:4px}
+  footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--line);color:var(--dim);font-size:.85rem}
+  footer a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Steward Gate <span class="hl">·</span> who may steer the kernel</h1>
+  <p class="sub">A mesh weights a vote by <strong>contribution</strong> — units earned by verified work — which is anti-Sybil but blind to whether a heavy earner can hold a <em>self</em>. A node can grind build and explore work, bank units, and never <strong>verify</strong> or <strong>remember</strong>: a provably-fit <strong>cripple</strong> that still accrues weight over a kernel it has no memory to guard. The gate: your earned units become <strong>steering weight only if you hold a self</strong> — verify <em>and</em> remember, each at or above κ. You may earn; you may only steer if you hold a self.</p>
+</header>
+
+<h2>The mesh — tune each node, cast its vote</h2>
+<div class="presets">
+  <button id="p-captured">a captured vote (a crippled whale)</button>
+  <button id="p-honest">an honest mesh (all hold a self)</button>
+</div>
+<div class="nodes" id="nodes"></div>
+
+<h2>The proposal &amp; bylaws</h2>
+<div class="bylaws">
+  <div class="b"><label>quorum — % of steward weight that must vote <span class="val" id="q-val">50%</span></label><input type="range" id="quorum" min="0" max="100" value="50"></div>
+  <div class="b"><label>pass threshold — % of voted weight for yes <span class="val" id="t-val">50%</span></label><input type="range" id="threshold" min="0" max="100" value="50"></div>
+</div>
+
+<div class="verdicts">
+  <div class="card raw">
+    <h3>Raw — contribution only (mesh-governance alone)</h3>
+    <div class="verdict" id="raw-verdict">—</div>
+    <div class="tallyline" id="raw-tally"></div>
+  </div>
+  <div class="card">
+    <h3>Steward-gated — self-persistence required</h3>
+    <div class="verdict" id="stew-verdict">—</div>
+    <div class="tallyline" id="stew-tally"></div>
+  </div>
+</div>
+<div class="flip" id="flip"></div>
+
+<div class="note">
+  <strong>Why verify + remember:</strong> in <a href="https://github.com/sjgant80-hub/build-geometry">build-geometry</a> the two <em>scarce</em> shapes that persist a self are the octahedron (verify — tell real from fake) and the dodecahedron (remember — hold the history). Those are exactly the two capacities steering a kernel needs: a node that cannot verify cannot tell a real proposal from a forged one; a node that cannot remember re-litigates settled decisions and can be replayed. So this gate is the recurse fold of build-geometry (the scarce self-shapes) ⊕ <a href="https://github.com/sjgant80-hub/mesh-governance">mesh-governance</a> (the contribution-weighted, unvotable-kernel tally). The steward electorate it produces is exactly the shape mesh-governance already consumes — it drops in front, unchanged.
+</div>
+
+<footer>
+  <p>MIT · <a href="https://github.com/sjgant80-hub/steward-gate">source &amp; mutation gate</a> — the decision is the gated <code>kernel.mjs</code> verbatim (injected, CI-diffed). Pure client-side.</p>
+</footer>
+</div>
+
+<script type="module">
+// ⟦KERNEL-BEGIN⟧ generated from kernel.mjs by make-page.mjs — do not edit here
+// steward-gate — who may STEER the mesh's kernel. The recurse fold of build-geometry (§26 maturity) ⊕
+// mesh-governance (§27 the unvotable kernel). mesh-governance weights a vote by CONTRIBUTION (units earned
+// by verified work) — anti-Sybil, but blind to WHETHER a heavy contributor can hold a self. A node can grind
+// BUILD and EXPLORE work, earn units, and never VERIFY or REMEMBER: a provably-fit CRIPPLE (build-geometry)
+// that nonetheless accrues governance weight over a kernel it has no self to guard across time.
+//
+// THE FOLD: the two SCARCE self-persisting shapes are VERIFY (the octahedron — tell real from fake) and
+// REMEMBER (the dodecahedron — hold the history). Those are exactly the two capacities that STEERING a kernel
+// requires: a node that cannot verify cannot tell a real proposal from a forged one; a node that cannot
+// remember re-litigates settled decisions and can be replayed. So a node's earned contribution becomes
+// STEWARD WEIGHT only if it holds a self — verify AND remember, each at or above kappa. Otherwise it may
+// still earn and keep its units, but it carries ZERO weight over the kernel. You may earn; you may only
+// steer if you hold a self.
+//
+// Pure and total; guards one-per-line. Composes build-geometry (the scarce self-shapes + the kappa floor)
+// and mesh-governance (the contribution-weighted tally). The electorate stewardElectorate returns is exactly
+// the shape mesh-governance consumes, so this gate drops in FRONT of the existing governance unchanged.
+
+const KAPPA = 0.618;   // the self-shape floor (1/phi) — held at or above this counts (build-geometry)
+// the two SCARCE shapes that persist a self (build-geometry SCARCE = octa + dodeca) — the two a steward needs
+const SELF_SHAPES = Object.freeze(['verify', 'remember']);
+
+const isObj = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
+const isInt = (v) => Number.isInteger(v);
+const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
+const isStr = (v) => typeof v === 'string' && v.length > 0;
+const isBool = (v) => typeof v === 'boolean';
+
+/**
+ * holdsSelf(phases) — does the node hold a self? phases carries verify and remember as numbers 0..1 (how well
+ * the node holds each organ, on build-geometry's scale). A self is held only when BOTH scarce shapes are at
+ * or above KAPPA. Missing EITHER one is no self to steer with — a provably-fit cripple may still hold the
+ * other three organs (init/build/explore). Total on garbage.
+ */
+function holdsSelf(phases) {
+  if (!isObj(phases)) return { ok: false, why: 'phases reads { verify, remember }' };
+  for (const shape of SELF_SHAPES) {
+    if (!isNum(phases[shape])) return { ok: false, why: 'self-shape ' + shape + ' must be a number' };
+    if (phases[shape] < 0 || phases[shape] > 1) return { ok: false, why: 'self-shape ' + shape + ' must be within zero to one' };
+  }
+  const verify = phases.verify >= KAPPA;
+  const remember = phases.remember >= KAPPA;
+  const holds = verify && remember;   // BOTH — a steward must tell real from fake AND hold the history
+  return { ok: true, holdsSelf: holds, verify, remember };
+}
+
+/**
+ * stewardWeight(node) — node = { contribution, phases }. contribution is the units earned by verified work (a
+ * non-negative integer, mesh-governance's electorate value). The node's governance weight is its full
+ * contribution IF it holds a self, else 0 — it keeps its units, it simply cannot steer the kernel.
+ */
+function stewardWeight(node) {
+  if (!isObj(node)) return { ok: false, why: 'node reads { contribution, phases }' };
+  if (!isInt(node.contribution) || node.contribution < 0) return { ok: false, why: 'contribution must be a non-negative integer' };
+  const h = holdsSelf(node.phases);
+  if (!h.ok) return { ok: false, why: h.why };
+  const weight = h.holdsSelf ? node.contribution : 0;
+  return { ok: true, weight, eligible: h.holdsSelf, contribution: node.contribution,
+    why: h.holdsSelf ? 'holds a self — may steer' : 'a provably-fit cripple: earns but cannot steer (missing verify and/or remember)' };
+}
+
+/**
+ * stewardElectorate(nodes) — nodes = { nodeId: { contribution, phases } }. Returns { electorate, barred }:
+ * electorate = { nodeId: weight } with cripples zeroed, exactly the shape mesh-governance's tally consumes;
+ * barred lists the node ids that earn but may not steer. The steward gate drops in front of governance.
+ */
+function stewardElectorate(nodes) {
+  if (!isObj(nodes)) return { ok: false, why: 'nodes must be an object of nodeId to { contribution, phases }' };
+  const electorate = {};
+  const barred = [];
+  for (const id of Object.keys(nodes)) {
+    const w = stewardWeight(nodes[id]);
+    if (!w.ok) return { ok: false, why: 'node ' + id + ': ' + w.why };
+    electorate[id] = w.weight;
+    if (!w.eligible) barred.push(id);
+  }
+  return { ok: true, electorate, barred };
+}
+
+/**
+ * outcome(electorate, votes, bylaws) — the contribution-weighted decision (mesh-governance's tally, kept
+ * self-contained so the page can run the whole fold). electorate = { nodeId: weight }; votes = [{ nodeId,
+ * support }]; bylaws carry integer quorum and passThreshold percents. A voter not in the electorate is
+ * ignored. Quorum: the voting weight is at least quorum percent of the total weight. Passed: the yes-weight
+ * is at least passThreshold percent of the weight that voted. Integer-exact — no float boundaries.
+ */
+function outcome(electorate, votes, bylaws) {
+  if (!isObj(electorate)) return { ok: false, why: 'electorate is { nodeId: weight }' };
+  if (!Array.isArray(votes)) return { ok: false, why: 'votes is an array of { nodeId, support }' };
+  if (!isObj(bylaws) || !isInt(bylaws.quorum) || !isInt(bylaws.passThreshold)) return { ok: false, why: 'bylaws carry integer quorum and passThreshold percents' };
+  let totalWeight = 0;
+  for (const id of Object.keys(electorate)) {
+    if (!isInt(electorate[id]) || electorate[id] < 0) return { ok: false, why: 'each weight must be a non-negative integer' };
+    totalWeight += electorate[id];
+  }
+  const counted = new Set();
+  let yesWeight = 0;
+  let noWeight = 0;
+  for (const v of votes) {
+    if (!isObj(v) || !isStr(v.nodeId) || !isBool(v.support)) return { ok: false, why: 'each vote is { nodeId, support: boolean }' };
+    if (!(v.nodeId in electorate)) continue;     // a non-member carries no weight
+    if (counted.has(v.nodeId)) return { ok: false, why: 'a node voted twice: ' + v.nodeId };
+    counted.add(v.nodeId);
+    if (v.support) yesWeight += electorate[v.nodeId];
+    else noWeight += electorate[v.nodeId];
+  }
+  const votedWeight = yesWeight + noWeight;
+  const quorumMet = votedWeight * 100 >= bylaws.quorum * totalWeight;
+  const passed = quorumMet && yesWeight * 100 >= bylaws.passThreshold * votedWeight;
+  return { ok: true, totalWeight, yesWeight, noWeight, votedWeight, quorumMet, passed };
+}
+
+/**
+ * decide(nodes, votes, bylaws) — the whole fold in one call. Tallies the SAME votes twice: once on RAW
+ * contribution (what mesh-governance alone would use, blind to self) and once on the STEWARD electorate
+ * (cripples zeroed). `flipped` is true when the steward gate changed the pass/fail outcome — the proof that
+ * gating governance by self-persistence is load-bearing, not decorative.
+ */
+function decide(nodes, votes, bylaws) {
+  const se = stewardElectorate(nodes);
+  if (!se.ok) return { ok: false, why: 'nodes: ' + se.why };
+  const raw = {};
+  for (const id of Object.keys(nodes)) raw[id] = nodes[id].contribution;   // every node validated by stewardElectorate above
+  const rawOut = outcome(raw, votes, bylaws);
+  if (!rawOut.ok) return { ok: false, why: 'raw tally: ' + rawOut.why };
+  const stewardOut = outcome(se.electorate, votes, bylaws);
+  if (!stewardOut.ok) return { ok: false, why: 'steward tally: ' + stewardOut.why };
+  return { ok: true, barred: se.barred, raw: rawOut, steward: stewardOut, flipped: rawOut.passed !== stewardOut.passed };
+}
+// ⟦KERNEL-END⟧
+
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const PRESETS = {
+    captured: [
+      { id: 'whale',   contribution: 100, verify: 0.30, remember: 0.30, support: true },
+      { id: 'guild-a', contribution: 20,  verify: 0.72, remember: 0.70, support: false },
+      { id: 'guild-b', contribution: 20,  verify: 0.70, remember: 0.72, support: false },
+    ],
+    honest: [
+      { id: 'node-1', contribution: 30, verify: 0.74, remember: 0.71, support: true },
+      { id: 'node-2', contribution: 18, verify: 0.70, remember: 0.70, support: true },
+      { id: 'node-3', contribution: 22, verify: 0.72, remember: 0.73, support: false },
+    ],
+  };
+  let mesh = PRESETS.captured.map((n) => ({ ...n }));
+
+  function fmtVote(s) { return s === true ? 'for' : s === false ? 'against' : 'abstain'; }
+
+  function drawNodes() {
+    const host = $('nodes');
+    host.textContent = '';
+    mesh.forEach((n, i) => {
+      const hs = holdsSelf({ verify: n.verify, remember: n.remember });
+      const eligible = hs.ok && hs.holdsSelf;
+      const card = document.createElement('div');
+      card.className = 'node ' + (eligible ? 'steer' : 'barred');
+      card.innerHTML =
+        '<div class="id">' + n.id +
+          '<span class="badge ' + (eligible ? 'steer' : 'barred') + '">' + (eligible ? 'steward' : 'cripple') + '</span></div>' +
+        '<div class="field"><label>contribution (earned units) <span class="val">' + n.contribution + '</span></label>' +
+          '<input type="number" min="0" step="1" value="' + n.contribution + '" data-i="' + i + '" data-k="contribution"></div>' +
+        '<div class="field"><label>verify (octa) <span class="val">' + n.verify.toFixed(2) + (n.verify >= KAPPA ? ' ✓' : ' ✗') + '</span></label>' +
+          '<input type="range" min="0" max="1" step="0.01" value="' + n.verify + '" data-i="' + i + '" data-k="verify"></div>' +
+        '<div class="field"><label>remember (dodeca) <span class="val">' + n.remember.toFixed(2) + (n.remember >= KAPPA ? ' ✓' : ' ✗') + '</span></label>' +
+          '<input type="range" min="0" max="1" step="0.01" value="' + n.remember + '" data-i="' + i + '" data-k="remember"></div>' +
+        '<div class="vote" data-i="' + i + '">' +
+          '<button data-v="for" class="' + (n.support === true ? 'on-for' : '') + '">for</button>' +
+          '<button data-v="against" class="' + (n.support === false ? 'on-against' : '') + '">against</button>' +
+          '<button data-v="abstain" class="' + (n.support === null ? 'on-abstain' : '') + '">abstain</button>' +
+        '</div>';
+      host.appendChild(card);
+    });
+  }
+
+  function compute() {
+    const nodes = {};
+    const votes = [];
+    for (const n of mesh) {
+      nodes[n.id] = { contribution: n.contribution, phases: { verify: n.verify, remember: n.remember } };
+      if (n.support === true || n.support === false) votes.push({ nodeId: n.id, support: n.support });
+    }
+    const bylaws = { quorum: Number($('quorum').value), passThreshold: Number($('threshold').value) };
+    const d = decide(nodes, votes, bylaws);
+    render(d);
+  }
+
+  function renderVerdict(elId, tallyId, o) {
+    const v = $(elId), t = $(tallyId);
+    if (!o) { v.textContent = '—'; t.textContent = ''; return; }
+    const pass = o.passed;
+    v.className = 'verdict ' + (pass ? 'v-pass' : 'v-fail');
+    v.textContent = pass ? 'ENACTED' : (o.quorumMet ? 'FAILED' : 'NO QUORUM');
+    t.innerHTML = 'yes <b>' + o.yesWeight + '</b> · no <b>' + o.noWeight + '</b> · voted <b>' + o.votedWeight +
+      '</b> of <b>' + o.totalWeight + '</b> steward weight';
+  }
+
+  function render(d) {
+    drawNodes();
+    if (!d || !d.ok) {
+      renderVerdict('raw-verdict', 'raw-tally', null);
+      renderVerdict('stew-verdict', 'stew-tally', null);
+      $('flip').className = 'flip';
+      $('flip').textContent = d && d.why ? ('input error: ' + d.why) : '';
+      return;
+    }
+    renderVerdict('raw-verdict', 'raw-tally', d.raw);
+    renderVerdict('stew-verdict', 'stew-tally', d.steward);
+    const flip = $('flip');
+    if (d.flipped) {
+      flip.className = 'flip on';
+      flip.innerHTML = '<b>The gate is load-bearing.</b> Blind to self, this proposal ' +
+        (d.raw.passed ? 'PASSES' : 'FAILS') + '; self-gated it ' + (d.steward.passed ? 'PASSES' : 'FAILS') +
+        '. Barred from steering (earned but no self): <b>' + (d.barred.length ? d.barred.join(', ') : 'none') + '</b>.';
+    } else {
+      flip.className = 'flip';
+      flip.innerHTML = 'Both tallies agree — the gate changed nothing here. Barred from steering: <b>' +
+        (d.barred.length ? d.barred.join(', ') : 'none') + '</b>.';
+    }
+  }
+
+  document.addEventListener('input', (e) => {
+    const el = e.target;
+    if (el.dataset && el.dataset.i !== undefined && el.dataset.k) {
+      const i = Number(el.dataset.i), k = el.dataset.k;
+      let val = Number(el.value);
+      if (k === 'contribution') val = Math.max(0, Math.round(val));
+      mesh[i][k] = val;
+      compute();
+    } else if (el.id === 'quorum') { $('q-val').textContent = el.value + '%'; compute(); }
+    else if (el.id === 'threshold') { $('t-val').textContent = el.value + '%'; compute(); }
+  });
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.vote button');
+    if (!btn) return;
+    const i = Number(btn.parentElement.dataset.i);
+    const v = btn.dataset.v;
+    mesh[i].support = v === 'for' ? true : v === 'against' ? false : null;
+    compute();
+  });
+
+  $('p-captured').addEventListener('click', () => { mesh = PRESETS.captured.map((n) => ({ ...n })); compute(); });
+  $('p-honest').addEventListener('click', () => { mesh = PRESETS.honest.map((n) => ({ ...n })); compute(); });
+
+  compute();
+})();
+</script>
+</body>
+</html>
